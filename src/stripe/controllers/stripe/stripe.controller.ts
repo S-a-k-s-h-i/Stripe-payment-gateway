@@ -1,4 +1,4 @@
-import { Body, Controller, Post,Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post,Query,Render,Request, Res, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../../auth/guards/jwt-auth/jwt-auth.guard';
 import { UserService } from '../../../user/services/user/user.service';
 import { CreateAccountDto } from '../../dto/create-account.dto';
@@ -26,5 +26,20 @@ export class StripeController {
         'Stripe account created successfully',
         account,
     ];
+    }
+
+    @Get('/success')
+    @Render('stripe-success')
+    async StripeSuccessTemplate():Promise<string[]>{
+        return []
+    }
+
+    @Get('stripe/refresh')
+    async refreshAccountLink(@Query('id') id: string, @Res() res) {
+        const accountLink = await this.stripeService.createAccountLink(
+        id,
+        'account_onboarding',
+        );
+        res.redirect(accountLink.url.toString());
     }
 }

@@ -3,7 +3,7 @@ import { IsEmail, IsNotEmpty } from 'class-validator';
 
 export class CreateUserDto {
     @IsNotEmpty()
-    name:string;
+    username:string;
 
     @IsEmail()
     email: string;
@@ -16,4 +16,5 @@ export class CreateUserDto {
     
     @IsNotEmpty()
     is_seller: boolean;
+    
 }

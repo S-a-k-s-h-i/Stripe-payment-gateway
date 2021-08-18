@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable} from '@nestjs/common';
 import Stripe from 'stripe';
 import { UserService } from '../../../user/services/user/user.service';
 import { CreateAccountDto } from '../../dto/create-account.dto';
@@ -34,7 +34,7 @@ export class StripeService {
             // create account link
             return await this.createAccountLink(account.id, 'account_onboarding');
         }catch(e){
-            console.log(e);
+            console.log(e.message);
             throw new HttpException(
             'Failed to create Stripe Account',
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -52,11 +52,13 @@ export class StripeService {
             type: purpose,
         });
         } catch (e) {
-        console.log(e);
+        console.log(e.message);
         throw new HttpException(
         'Failed to create Account link',
         HttpStatus.INTERNAL_SERVER_ERROR,
         );
     }
     }
+    
+
 }

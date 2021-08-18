@@ -25,6 +25,9 @@ export class User extends BaseEntity{
     @Column('bool')
     is_seller: boolean;
 
+    @Column({nullable: true})
+    account_id: string;
+
     @BeforeInsert()
     hashPassword() {
         const salt = bcrypt.genSaltSync(parseInt(process.env.SALT_ROUNDS));

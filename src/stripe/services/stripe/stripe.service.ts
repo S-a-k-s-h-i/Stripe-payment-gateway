@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable} from '@nestjs/common';
 import Stripe from 'stripe';
+import { User } from '../../../user/entities/user.entity';
 import { UserService } from '../../../user/services/user/user.service';
 import { CreateAccountDto } from '../../dto/create-account.dto';
 
@@ -13,9 +14,11 @@ export class StripeService {
             apiVersion: '2020-08-27',
         });
     }
+
+    //method to create stripe account
     async createAccount(
         createAccountDto:CreateAccountDto,
-        user
+        userDto:User
     ){
         try{
             const account = await this.stripe.accounts.create({
@@ -27,7 +30,7 @@ export class StripeService {
                 },
             });
             await this.userService.updateOne({
-                id: user.id,
+                id: userDto.id,
                 account_id: account.id,
             });
 
@@ -60,5 +63,17 @@ export class StripeService {
     }
     }
     
-
+    //method to get account detail
+    async getAccountDetail(userDto:User):Promise<any>{
+        try{
+            const user = await this.userService.findById(userDto.id);
+            const acc= await this.stripe.accounts.retrieve(user.account_id);
+        }catch(e){
+            console.log(e.message)
+            throw new HttpException(
+                'stripe account not found',
+                HttpStatus.INTERNAL_SERVER_ERROR
+            )
+        }
+    }
 }

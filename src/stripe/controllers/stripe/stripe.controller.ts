@@ -5,8 +5,13 @@ import { Roles } from '../../../general/roles.decorator';
 import { UserService } from '../../../user/services/user/user.service';
 import { CreateAccountDto } from '../../dto/create-account.dto';
 import { CreateExternalAccountDto } from '../../dto/create-external-account.dto';
+import { CreatePaymentMethodDto } from '../../dto/create-paymentMethod.dto';
+import { DeletePaymentMethodDto } from '../../dto/delete-paymentMethod.dto';
 import { GetExternalAccountListDto } from '../../dto/get-external-account-list.dto';
+import { GetPaymentMethodListDto } from '../../dto/get-paymentMethod-list.dto';
+import { OnboardAccountLinkDto } from '../../dto/onboard-account-link.dto';
 import { UpdateExternalAccountDto } from '../../dto/update-external-account.dto';
+import { UpdatePaymentMethodDto } from '../../dto/update-paymentMethod.dto';
 import { StripeService } from '../../services/stripe/stripe.service';
 
 @Controller('stripe')
@@ -58,6 +63,37 @@ export class StripeController {
             'Stripe account fetched successfully',
             account
         ]
+    }
+
+    @Roles('seller')
+    @Post('/account/onboard')
+    async accountOnboarding(
+        @Body() onboardAccountDto: OnboardAccountLinkDto,
+    ) {
+        const accountLink = await this.stripeService.createAccountLink(
+        onboardAccountDto.id,
+        'account_onboarding',
+        );
+        return [
+        'Account link successfully created',
+        accountLink,
+        ] ;
+    }
+    
+    //API to update onboard account
+    @Roles('seller')
+    @Post('/account/update')
+    async updateAccount(
+        @Body() onboardAccountUpdateDto: OnboardAccountLinkDto,
+    ) {
+        const accountLink = await this.stripeService.createAccountLink(
+            onboardAccountUpdateDto.id,
+            'account_update',
+        );
+        return [
+        'Account Link successfully created for Account Updation',
+        accountLink,
+        ];
     }
 
     //API to create external account
@@ -140,7 +176,76 @@ export class StripeController {
             externalAccount,
         ];
     }
+    
+    //API to create payment method
+    @Roles('buyer', 'seller')
+    @Post('/paymentMethod')
+    async createPaymentMethod(
+        @Body() createpaymentMethodDto: CreatePaymentMethodDto,
+        @Request() req,
+    ): Promise<(string | unknown)[]> {
+        const paymentMethod = await this.stripeService.createPaymentMethod(
+        createpaymentMethodDto,
+        req.user,
+        );
+        return [
+            'Payment method successfully Added',
+            paymentMethod,
+        ];
+    }
+    
+    //API to detach a payment method from customer
+    @Roles('buyer', 'seller')
+    @Delete('/paymentMethod')
+    async deletePaymentMethod(
+        @Body() deletePaymentMethodDto: DeletePaymentMethodDto,
+    ): Promise<string[]> {
+        await this.stripeService.deletePaymentMethod(deletePaymentMethodDto);
+        return [
+        'Payment method deleted successfully'
+        ];
+    }
 
+    @Roles('buyer', 'seller')
+    @Patch('/paymentMethod')
+    async updatePaymentMethod(
+        @Body() updatePaymentMethodDto: UpdatePaymentMethodDto,
+    ): Promise<(string | unknown)[]> {
+        const paymentMethod = await this.stripeService.updatePaymentMethod(
+        updatePaymentMethodDto
+        );
+        return [
+        'Payment method updated successfully',
+        paymentMethod,
+        ];
+    }
 
+    @Roles('buyer', 'seller')
+    @Get('/paymentMethod/:paymentMethod_id')
+    async getPaymentMethodDetail(
+        @Param('paymentMethod_id') paymentMethod_id: string
+    ): Promise<(string | unknown)[]> {
+        const paymentMethod = await this.stripeService.getPaymentMethodDetail(paymentMethod_id);
+        return [
+        'payment method fetched successfully',
+        paymentMethod,
+        ];
+    }
 
-}
+    @Roles('buyer', 'seller')
+    @Get('/paymentMethod')
+    async getPaymentList(
+        @Query() getPaymentMethodListDto:GetPaymentMethodListDto,
+        @Request() req,
+    ): Promise<(string | unknown)[]> {
+        const paymentMethod = await this.stripeService.getPaymentMethodList(
+        getPaymentMethodListDto,
+        req.user,
+        );
+        return [
+        'Successfully fetched customer payment methods',
+        paymentMethod,
+        ];
+    }
+    
+    }

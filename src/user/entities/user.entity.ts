@@ -27,6 +27,9 @@ export class User extends BaseEntity{
 
     @Column({nullable: true})
     account_id: string;
+    
+    @Column({nullable: true})
+    customer_id: string;
 
     @BeforeInsert()
     hashPassword() {

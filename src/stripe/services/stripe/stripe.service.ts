@@ -1,11 +1,16 @@
 import { HttpException, HttpStatus, Injectable} from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import Stripe from 'stripe';
 import { User } from '../../../user/entities/user.entity';
 import { UserService } from '../../../user/services/user/user.service';
 import { CreateAccountDto } from '../../dto/create-account.dto';
 import { CreateExternalAccountDto } from '../../dto/create-external-account.dto';
+import { CreatePaymentMethodDto } from '../../dto/create-paymentMethod.dto';
+import { DeletePaymentMethodDto } from '../../dto/delete-paymentMethod.dto';
 import { GetExternalAccountListDto } from '../../dto/get-external-account-list.dto';
+import { GetPaymentMethodListDto } from '../../dto/get-paymentMethod-list.dto';
 import { UpdateExternalAccountDto } from '../../dto/update-external-account.dto';
+import { UpdatePaymentMethodDto } from '../../dto/update-paymentMethod.dto';
 
 @Injectable()
 export class StripeService {
@@ -31,6 +36,14 @@ export class StripeService {
                 card_payments: {requested: true},
                 transfers: {requested: true},
                 },
+                settings: {
+                    payouts: {
+                        schedule: {
+                            interval: 'manual',
+                        },
+                        debit_negative_balances:true
+                    },
+                    },
             });
             await this.userService.updateOne({
                 id: userDto.id,
@@ -246,5 +259,218 @@ export class StripeService {
             }
         }
         }
-    
+
+     // Method to create customer in order to accept payments
+    async createCustomer(userDto: User): Promise<any> {
+        try {
+            const customer = await this.stripe.customers.create({
+                name: userDto.username,
+                email: userDto.email,
+        });
+
+        await this.userService.updateOne({
+            id: userDto.id,
+            customer_id: customer.id,
+        });
+
+        return customer;
+    } catch (e) {
+        console.log(e.message)
+        if(e.type === 'StripeConnectionError'){
+                throw new HttpException(
+                'Failed to create stripe customer',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+        }else{
+            throw new HttpException(e.message,e.statusCode);
+        }
+    }
+    }
+
+    // Method to create payment method for customer to accept payment
+    async createPaymentMethod(
+    createpaymentMethodDto: CreatePaymentMethodDto,
+    userDto: User,
+    ): Promise<any> {
+    try {
+        const user = await this.userService.findById(userDto.id);
+        const customer_id = user.customer_id
+        ? user.customer_id
+        : (await this.createCustomer(user)).id;
+
+        const paymentMethod = await this.stripe.paymentMethods.create({
+            type: 'card',
+            card: Object.assign({...createpaymentMethodDto.card}),
+            });
+        return await this.stripe.paymentMethods.attach(
+                paymentMethod.id,
+                {customer: customer_id}
+                );
+    } catch (e) {
+        console.log(e.message)
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Payment creation method failed',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        }
+    }
+    }
+
+    // Method to detach payment method from customer
+    async deletePaymentMethod(
+        deletePaymentMethodDto: DeletePaymentMethodDto,
+    ): Promise<any> {
+    try {
+        return await this.stripe.paymentMethods.detach(
+            deletePaymentMethodDto.paymentMehod_id
+        );
+    } catch (e) {
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Failed to delete payment method',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        }
+    }
+    }
+
+    // Method to update customer's payment method
+    async updatePaymentMethod(
+    updatePaymentMethodDto: UpdatePaymentMethodDto,
+    ): Promise<any> {
+    try {
+        const updateData =
+            updatePaymentMethodDto.object === 'card'
+            ? Object.assign({ ...updatePaymentMethodDto.card })
+            : null;
+        return await this.stripe.paymentMethods.update(
+                updatePaymentMethodDto.paymentMethod_id,
+                updateData
+            );
+    } catch (e) {
+        console.log(e.message)
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Failed to update payment method',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        }
+    }
+    }
+
+    // Method to get customer's payment method details
+    async getPaymentMethodDetail(paymenMethod_id: string): Promise<any> {
+    try {
+        return await this.stripe.paymentMethods.retrieve(
+            paymenMethod_id
+        );
+    } catch (e) {
+        console.log(e)
+        console.log(e.message)
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Failed to fetch payment method',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        } 
+    }
+    }
+
+    // Method to get list of customer's payment method
+    async getPaymentMethodList(
+        getPaymentMethodListDto: GetPaymentMethodListDto,
+        userDto: User,
+    ): Promise<any> {
+    try {
+        const user = await this.userService.findById(userDto.id);
+        if (user.customer_id)
+            return await this.stripe.paymentMethods.list(
+            Object.assign({
+            customer:user.customer_id,
+            type: getPaymentMethodListDto.object,
+            limit: getPaymentMethodListDto.limit ?? 10,
+            starting_after: getPaymentMethodListDto.starting_after,
+            ending_before: getPaymentMethodListDto.ending_before,
+            }),
+        );
+        else return [];
+    } catch (e) {
+        console.log(e.message)
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Failed to fetch customer payment methods',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        } 
+    }
 }
+    
+    // Method to accept payment from customer
+    async acceptPayment(paymentDto): Promise<any> {
+        try {
+        // Deduct payment from customer's payment method
+        return await this.stripe.paymentIntents.create(paymentDto);
+    } catch (e) {
+        if (e.type === 'StripeConnectionError') {
+            throw new HttpException(
+                'Failed to create charge',
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        } else {
+            throw new HttpException(e.raw.message, e.raw.statusCode);
+        }
+    }
+    }
+    
+    @Cron('45 * * * * *', {
+        name: 'Send Payouts',
+        timeZone: 'America/New_York',
+    })
+    async generatePayOuts(){
+        try{
+            const payout = await this.stripe.payouts.create({
+                amount:  (98* 100),
+                currency: 'usd',
+                }, {
+                stripeAccount: 'acct_1JSL9rPAnao1x3Rm',
+                });
+                // If payout succeeds
+            if(payout.status && payout.status === 'paid'){
+                console.log('payOut successful')
+            }else{
+                console.log('PayOut status',payout.status)
+            }
+        }catch(e){
+            console.log(e.message)
+        }
+
+    }
+
+    @Cron('30 1 * * * *', {
+        name: 'Send Refunds',
+        timeZone: 'America/New_York',
+    })
+    async generateRefunds(){
+        try{
+            const refund = await this.stripe.refunds.create({
+                payment_intent: 'pi_3JSLpUASgjzARRhD3nx4tpLz',
+            });
+            if (refund.status && refund.status === 'succeeded'){
+                console.log('successfully refunded')
+            }
+        }catch(e){
+            console.log(e.message)
+        }
+    }
+    }

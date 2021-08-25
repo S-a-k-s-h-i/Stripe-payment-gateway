@@ -9,6 +9,8 @@ import { StripeModule } from './stripe/stripe.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from './general/guards/role-authentication.guard';
+import { OrderModule } from './order/order.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -16,9 +18,12 @@ import { RolesGuard } from './general/guards/role-authentication.guard';
       isGlobal: true,
     }),
     TypeOrmModule.forRoot(),
+    // Initialize scheduler to perform task scheduling
+    ScheduleModule.forRoot(),
     UserModule,
     AuthModule,
     StripeModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [

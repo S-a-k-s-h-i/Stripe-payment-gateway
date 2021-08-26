@@ -40,8 +40,7 @@ export class StripeService {
                     payouts: {
                         schedule: {
                             interval: 'manual',
-                        },
-                        debit_negative_balances:true
+                        }
                     },
                     },
             });
@@ -433,44 +432,60 @@ export class StripeService {
     }
     }
     
-    @Cron('45 * * * * *', {
+    //Method to manually generate the payOuts
+    @Cron('* 0 7 * * *', {
         name: 'Send Payouts',
         timeZone: 'America/New_York',
     })
     async generatePayOuts(){
         try{
             const payout = await this.stripe.payouts.create({
-                amount:  (98* 100),
+                amount:  (148* 100),
                 currency: 'usd',
                 }, {
                 stripeAccount: 'acct_1JSL9rPAnao1x3Rm',
                 });
-                // If payout succeeds
-            if(payout.status && payout.status === 'paid'){
-                console.log('payOut successful')
-            }else{
-                console.log('PayOut status',payout.status)
-            }
+                // If payout status
+                console.log(payout.status);
+            
         }catch(e){
             console.log(e.message)
         }
 
     }
-
-    @Cron('30 1 * * * *', {
+    
+    //Method to generate refunds
+    @Cron('* 0 8 * * *', {
         name: 'Send Refunds',
         timeZone: 'America/New_York',
     })
     async generateRefunds(){
+        const paymentIntentId='pi_3JSbRUASgjzARRhD1kHZaqjq'
         try{
             const refund = await this.stripe.refunds.create({
-                payment_intent: 'pi_3JSLpUASgjzARRhD3nx4tpLz',
+                payment_intent: paymentIntentId,
             });
+            //if refund succeeds
             if (refund.status && refund.status === 'succeeded'){
-                console.log('successfully refunded')
+                const paymentIntent = await this.stripe.paymentIntents.retrieve(
+                    paymentIntentId
+                );
+                await this.refundApplicationFee(
+                        paymentIntent.charges.data[0].application_fee
+                )
+                console.log('refund successful')
             }
         }catch(e){
             console.log(e.message)
+        }
+    }
+    
+    //Method to refund application fees
+    async refundApplicationFee(fees_id){
+        try{
+            return await this.stripe.applicationFees.createRefund(fees_id);
+        }catch(e){
+            console.log(e.message);
         }
     }
     }

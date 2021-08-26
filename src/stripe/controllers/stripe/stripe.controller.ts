@@ -17,7 +17,6 @@ import { StripeService } from '../../services/stripe/stripe.service';
 @Controller('stripe')
 export class StripeController {
     constructor(
-        private readonly userService:UserService,
         private readonly stripeService:StripeService
     ){}
 
@@ -54,7 +53,8 @@ export class StripeController {
         );
         res.redirect(accountLink.url.toString());
     }
-
+    
+    //API to get account details
     @Roles('seller')
     @Get('/account-details')
     async getAccountDetails(@Request() req){
@@ -64,7 +64,8 @@ export class StripeController {
             account
         ]
     }
-
+    
+    //API for account onboarding
     @Roles('seller')
     @Post('/account/onboard')
     async accountOnboarding(
@@ -80,7 +81,7 @@ export class StripeController {
         ] ;
     }
     
-    //API to update onboard account
+    //API to update account
     @Roles('seller')
     @Post('/account/update')
     async updateAccount(
@@ -205,7 +206,8 @@ export class StripeController {
         'Payment method deleted successfully'
         ];
     }
-
+    
+    //API To update a payment method
     @Roles('buyer', 'seller')
     @Patch('/paymentMethod')
     async updatePaymentMethod(
@@ -219,7 +221,8 @@ export class StripeController {
         paymentMethod,
         ];
     }
-
+    
+    //API to get the payment method details
     @Roles('buyer', 'seller')
     @Get('/paymentMethod/:paymentMethod_id')
     async getPaymentMethodDetail(
@@ -231,7 +234,8 @@ export class StripeController {
         paymentMethod,
         ];
     }
-
+    
+    //API t get list of payment methods
     @Roles('buyer', 'seller')
     @Get('/paymentMethod')
     async getPaymentList(
